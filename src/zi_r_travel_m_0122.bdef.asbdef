@@ -74,6 +74,8 @@ with additional save
   //determination that calls when user save, modify booking fee
   determination calcTotalPrice on modify { field BookingFee, CurrencyCode; create; }
 
+  determination byDefaultOverallStatus on modify { field OverallStatus; create; }
+
   //Sideeffect to make fiori do a GET call to load updated data
   side effects  ///TO MAKE 'TOTAL PRICE' FIELD VALUE AUTO REFRESH TO UPDATE THE VALUE
   {
