@@ -1,0 +1,136 @@
+@Metadata.layer: #CUSTOMER
+@UI.headerInfo:{
+    typeName: 'Travel Request',
+    typeNamePlural: 'Travel Requests',
+    title : { value: 'TravelId' },
+    description : { value : 'Description' }
+}
+annotate entity ZC_R_TRAVEL_M_0122 with
+{
+  @UI.facet: [
+      {
+          purpose: #HEADER,
+          id: 'TravelHeaderPrice',
+          type: #DATAPOINT_REFERENCE,
+          position: 10,
+          targetQualifier: 'optimusprime'
+      },
+      {
+          purpose: #HEADER,
+          id: 'TravelStatus',
+          type: #DATAPOINT_REFERENCE,
+          position: 20,
+          targetQualifier: 'bumbblebee'
+      },
+      {
+          purpose: #STANDARD,
+          type: #COLLECTION,
+          id: 'idGeneralInfo',
+          position: 10,
+          label: 'General Information'
+      },
+      {
+          purpose: #STANDARD,
+          type: #IDENTIFICATION_REFERENCE,
+          id: 'basic',
+          label: 'Basic Data',
+          parentId: 'idGeneralInfo',
+          position: 10
+      },
+      {
+          purpose: #STANDARD,
+          type: #FIELDGROUP_REFERENCE,
+          id: 'dates',
+          label: 'Travel Dates',
+          parentId: 'idGeneralInfo',
+          position: 20,
+          targetQualifier: 'spiderman'
+      },
+      {
+          purpose: #STANDARD,
+          type: #FIELDGROUP_REFERENCE,
+          id: 'prices',
+          label: 'Costs',
+          parentId: 'idGeneralInfo',
+          position: 30,
+          targetQualifier: 'wonderwomen'
+      },
+      {
+          purpose: #STANDARD,
+          type: #LINEITEM_REFERENCE,
+          id: 'idItems',
+          position: 20,
+          label: 'Bookings',
+          targetElement: '_Booking'
+      }
+  //      ,
+  //      {
+  //          purpose: #STANDARD,
+  //          type: #LINEITEM_REFERENCE,
+  //          id: 'idAttach',
+  //          position: 30,
+  //          label: 'Attachments',
+  //          targetElement: '_Attachments'
+  //      }
+
+  ]
+  @UI.selectionField: [{ position: 10 }] //// ADD AS FILTER PARAMETER.
+  @UI.lineItem: [{ position: 10 },       //// ADD AS DEFAULT FIELD SELECTION WHEN CLICK ON THE BUTTON 'GO'.
+                 { type: #FOR_ACTION, dataAction: 'copyTravel', label: 'Copy Request' }]
+  @UI.identification: [{ position: 10 },
+                 { type: #FOR_ACTION, dataAction: 'copyTravel', label: 'Copy Chaste' }]
+  TravelId;
+
+  @UI.selectionField: [{ position: 20 }]
+  @UI.lineItem: [{ position: 20 }]
+  @UI.identification: [{ position: 30 }]
+  AgencyId;
+
+  @UI.selectionField: [{ position: 30 }]
+  @UI.lineItem: [{ position: 30 }]
+  @UI.identification: [{ position: 40 }]
+  CustomerId;
+
+  @UI.lineItem: [{ position: 40 }]
+  @UI.fieldGroup: [{ position: 10, qualifier: 'spiderman' }]
+  BeginDate;
+
+  @UI.fieldGroup: [{ position: 20, qualifier: 'spiderman' }]
+  EndDate;
+
+  @UI.fieldGroup: [{ position: 10, qualifier: 'wonderwomen' }]
+  BookingFee;
+
+  @UI.selectionField: [{ position: 40 }]
+  @UI.lineItem: [{ position: 50 }]
+  @UI.dataPoint: { qualifier: 'optimusprime', title: 'Total Price' }
+  @UI.fieldGroup: [{ position: 20, qualifier: 'wonderwomen' }]
+  TotalPrice;
+
+  @UI.fieldGroup: [{ position: 30, qualifier: 'wonderwomen' }]
+  CurrencyCode;
+
+  @UI.identification: [{ position: 20 }]
+  Description;
+
+  @UI.selectionField: [{ position: 50 }]
+  @UI.lineItem: [{ position: 60, importance: #HIGH, criticality: 'Minion' }]
+  @UI.dataPoint: { qualifier: 'bumbblebee', title: 'Travel Status', criticality: 'Minion' }
+  @UI.fieldGroup: [{ position: 30, qualifier: 'spiderman' }]
+  OverallStatus;
+
+  @UI.lineItem: [{ position: 70, importance: #HIGH }]
+  @UI.fieldGroup: [{ position: 60, qualifier: 'spiderman' }]
+  dayOfFlight;
+
+  @UI.lineItem: [{ position: 80, importance: #HIGH }]
+  @UI.fieldGroup: [{ position: 70, qualifier: 'spiderman' }]
+  CO2Tax;
+
+  //    CreatedBy;
+  //    CreatedAt;
+  //    LastChangedBy;
+  //    LastChangedAt;
+
+
+}

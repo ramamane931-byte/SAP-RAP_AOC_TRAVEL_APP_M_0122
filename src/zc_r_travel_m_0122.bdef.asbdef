@@ -1,0 +1,42 @@
+projection;
+strict ( 2 );
+use collaborative draft;
+
+define behavior for ZC_R_TRAVEL_M_0122 alias Travel
+{
+  use create;
+  use update;
+  use delete;
+
+  use action copyTravel;
+  use action acceptTravel;
+  use action rejectTravel;
+  use action validateCustomer;
+
+  use action Prepare;
+  use action Edit;
+  use action Resume;
+  use action Activate;
+  use action Discard;
+  use action Share;
+
+  use association _Booking { create; with draft; }
+}
+
+define behavior for ZC_BOOKING_M_0122 alias Booking
+{
+  use update;
+  use delete;
+
+  use association _Travel { with draft; }
+  use association _BookingSuppl { create; with draft; }
+}
+
+define behavior for zc_bookingsuppl_m_0122 alias BookSuppl
+{
+  use update;
+  use delete;
+
+  use association _Travel { with draft; }
+  use association _Booking { with draft; }
+}

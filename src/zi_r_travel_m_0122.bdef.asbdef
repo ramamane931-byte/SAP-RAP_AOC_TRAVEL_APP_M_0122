@@ -1,0 +1,241 @@
+//managed will tell RAP that developer want RAP to create most of code automatically
+managed implementation in class zbp_i_r_travel_m_0122 unique;
+//In case developer want to plug extra coding, this is the class where we can do it
+
+//Tell the RAP engine to syntax check our code strictly
+strict ( 2 );
+
+//s1: add the draft feature at BO level zkas
+with collaborative draft; //Allow user to do make same changes in the instance and reflact live changes parallely.
+
+//Root Entity behavior
+define behavior for zi_r_travel_m_0122 alias Travel
+implementation in class zbp_i_r_travel_m_0122 unique
+//Tell the RAP that it should WRITE, UPDATE, MODIFY, DELETE data from which table
+persistent table /dmo/travel_m
+//How the data will be locked ENQUEUE, DEQUEUE - if the travel data is locked by used, other
+//users parallely cannot edit its bookings and supplements
+lock master
+//s3: Add the total etag field
+total etag LastChangedAt
+//s4: define a draft table, use quick fix to create it
+draft table zats_rama_dtrav query zats_rama_travq  // 'zats_rama_travq' root view part of a 'collaborative draft'.
+//To Control data security - permission - authorization of who can create, edit, delete data
+//TODO: Developer must implement coding for this line in class - I AM SKIPPING IT TO SHOW YOU WAT HAPPENS ;)
+authorization master ( instance, global )
+//it is a field which is used by framework to evaluate whether data was changed in meanwhile OR not
+etag master LastChangedAt
+//We want as a developer to take control of creating Travel ID
+early numbering
+//additional save - once RAP completes all of its activities
+//as a developer you can 100% sure that a save was successfully triggered in DB
+with additional save
+{
+  //Behavior what we want RAP to generate for us
+  /// 'PRECHECK' To verify the country of origin of customer and agency are same or not,
+  ///  Before click on Save button on fly it will verify the data and show errors accordigly if not satisfied.
+  create ( authorization : global, precheck );
+  update ( precheck );
+  delete;
+  //static feature control which says that a user cannot change primary key in update mode
+  field ( readonly ) TravelId;
+  field ( mandatory ) begindate, enddate, agencyid, customerid;
+
+  //Since we want to create new BO instance (Factory), Our reference is mohan's (instance)
+  factory action copyTravel [1];  ////INSTANCE BASE FACTORY DATA ACTION
+
+  //non factory data action - change the state of the instance of a BO
+  // Dynamic feature control - 'features:instance'
+  action ( features : instance ) acceptTravel result [1] $self;
+  action ( features : instance ) rejectTravel result [1] $self;
+
+  ///Here we write internal action to calculate total cost of travel
+  //we can later consume this internal action multiple place
+  internal action reCalcTotalPrice;
+
+  //Check the Header data during save/update - validation
+  validation validateHeaderData on save { create; field CustomerId, BeginDate, EndDate, AgencyId; }
+
+  //you can invoke it by a button click or using side effect (on fly while draft)
+  // Cannot implement 'validateCustomer'. It's just an anchor point to invoke other validation things.
+  determine action validateCustomer ///'validateCustomer' if we nee
+  {
+    validation validateHeaderData; //// Validating 'Agency ID' and 'Customer ID'. If it's unknown then throw err.
+  }
+
+  //s2: satisfy Ego of RAP framework; to put the draft actions
+  draft determine action Prepare;
+  draft action Edit;
+  draft action Resume;
+  draft action Activate optimized;
+  draft action Discard;
+  draft action Share;
+
+  //determination that calls when user save, modify booking fee
+  determination calcTotalPrice on modify { field BookingFee, CurrencyCode; create; }
+
+  //Sideeffect to make fiori do a GET call to load updated data
+  side effects  ///TO MAKE 'TOTAL PRICE' FIELD VALUE AUTO REFRESH TO UPDATE THE VALUE
+  {
+    field BookingFee affects field TotalPrice;
+    entity _Booking affects field TotalPrice;
+    //side effect which trigger the validation on fly
+    determine action validateCustomer executed on field CustomerId ///Display Fields errors base on TAB or on fly.
+    affects messages;
+  }
+
+  //That create of booking depends on travel, like you cannot create a so line item w/o creating header
+  // Dynamic feature control - 'features:instance'
+  //s5: add with draft for child entity
+  association _Booking { create ( features : instance ); with draft; }
+
+  //Now we allow creation of the attachment with header
+  //  association _Attachments { create; with draft; }
+
+  mapping for /dmo/travel_m
+    {
+      TravelId      = travel_id;
+      BeginDate     = begin_date;
+      EndDate       = end_date;
+      AgencyId      = agency_id;
+      CustomerId    = customer_id;
+      CurrencyCode  = currency_code;
+      TotalPrice    = total_price;
+      BookingFee    = booking_fee;
+      LastChangedAt = last_changed_at;
+      LastChangedBy = last_changed_by;
+      CreatedBy     = created_by;
+      CreatedAt     = created_at;
+      Description   = description;
+      OverallStatus = overall_status;
+    }
+}
+
+//Behavior for Booking entity
+define behavior for zi_booking_m_0122 alias Booking
+implementation in class zbp_i_r_booking_m_0122 unique
+persistent table /dmo/booking_m
+//s7: define the draft table for booking data, use quick fix to create booking draft tab
+draft table zats_rama_dbook
+//if parent data is locked child is also locked automatically
+lock dependent by _Travel
+//lets check the authorization and role @ parent if that pass, we allow booking also to be updated
+authorization dependent by _Travel
+etag master LastChangedAt
+//support for automatic creation of early numbering for Bookings
+early numbering
+{
+  //user is allowed to only change and delete booking independently
+  update;
+  delete;
+  //While user is editing the booking data, they cannot change the travel header data
+  field ( readonly ) TravelId, BookingId;
+  field ( mandatory ) CarrierId, ConnectionId, BookingDate, customerid;
+  association _Travel { with draft; }
+  //Supplement creation is possible with booking
+  //s6: add with draft for grand child entity
+
+  association _BookingSuppl { create; with draft; }
+
+  //Sideeffect to make fiori do a GET call to load updated data
+  side effects
+  {
+    field FlightPrice affects field _Travel.TotalPrice;
+    entity _BookingSuppl affects field _Travel.TotalPrice;
+  }
+
+  //determination that calls when user save, modify booking fee
+  //  determination calcTotalPriceBook on modify { field FlightPrice, CurrencyCode; create; }
+  determination calcTotalPriceBook on modify { field FlightPrice, CurrencyCode; } // Added for Recording '16'
+
+  mapping for /dmo/booking_m
+    {
+      travelid      = travel_id;
+      bookingid     = booking_id;
+      BookingDate   = booking_date;
+      CustomerId    = customer_id;
+      CarrierId     = carrier_id;
+      ConnectionId  = connection_id;
+      FlightDate    = flight_date;
+      FlightPrice   = flight_price;
+      CurrencyCode  = currency_code;
+      BookingStatus = booking_status;
+      LastChangedAt = last_changed_at;
+    }
+}
+
+define behavior for zi_bookingsuppl_m_0122 alias BookSuppl
+implementation in class zbp_i_r_bookingsuppl_m_0122 unique
+persistent table /dmo/booksuppl_m
+//s8: define the draft table for booking suppl data, use quick fix to create booking draft tab
+draft table zats_rama_dbooks
+lock dependent by _Travel
+authorization dependent by _Travel
+etag master LastChangedAt
+early numbering
+{
+  update;
+  delete;
+  field ( readonly ) TravelId, BookingId, BookingSupplementId, LastChangedAt;
+  field ( mandatory ) SupplementId, CurrencyCode, price;
+  association _Travel { with draft; }
+  association _Booking { with draft; }
+
+  //determination that calls when user save, modify booking fee
+  //TODO: Homework to implement the determination
+  //  determination calcTotalPriceSuppl on modify { field Price, CurrencyCode; create; }
+  determination calcTotalPriceSuppl on modify { field Price, CurrencyCode; } // Added for Recording '16'
+  //Sideeffect to make fiori do a GET call to load updated data
+  side effects
+  {
+    field Price affects field _Travel.TotalPrice;
+  }
+
+  mapping for /dmo/booksuppl_m
+    {
+      TravelId            = travel_id;
+      BookingId           = booking_id;
+      BookingSupplementId = booking_supplement_id;
+      SupplementId        = supplement_id;
+      Price               = price;
+      CurrencyCode        = currency_code;
+      LastChangedAt       = last_changed_at;
+    }
+}
+
+//Behavior for Booking entity
+//define behavior for ZATS_RAMA_ATTACH_M_01 alias Attachment
+////implementation in class ZBP_ATS_RAMA_ATTACHMENT_01 unique
+//persistent table zats_rama_attach
+////s7: define the draft table for booking data, use quick fix to create booking draft tab
+//draft table zats_rama_dattch
+////if parent data is locked child is also locked automatically
+//lock dependent by _Travel
+////lets check the authorization and role @ parent if that pass, we allow booking also to be updated
+//authorization dependent by _Travel
+//etag master LastChangedAt
+//{
+//  //user is allowed to only change and delete booking independently
+//  update;
+//  delete;
+//  //While user is editing the booking data, they cannot change the travel header data
+//  field ( numbering : managed ) id;
+//  field ( readonly ) TravelId, id;
+//
+//  association _Travel { with draft; }
+//
+//  mapping for zats_rama_attach
+//    {
+//      travelid           = travel_id;
+//      id                 = id;
+//      memo               = memo;
+//      Attachment         = attachment;
+//      Filename           = filename;
+//      Filetype           = filetype;
+//      LastChangedAt      = last_changed_at;
+//      LocalCreatedAt     = local_created_at;
+//      LocalCreatedBy     = local_created_by;
+//      LocalLastChangedAt = local_last_changed_at;
+//      LocalLastChangedBy = local_last_changed_by;
+//    }
+//}

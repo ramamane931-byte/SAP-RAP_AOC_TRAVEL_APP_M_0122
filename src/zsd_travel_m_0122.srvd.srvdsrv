@@ -1,0 +1,15 @@
+@EndUserText.label: 'Service Defn for Travel Processor M 0122'
+define service ZSD_TRAVEL_M_0122 {
+  expose ZC_R_TRAVEL_M_0122       as Travel;
+  expose ZC_BOOKING_M_0122        as Booking;
+  expose zc_bookingsuppl_m_0122   as BookingSuppliment;
+  expose /DMO/I_Agency            as Agency;
+  expose /DMO/I_Customer          as Customer;
+  expose I_Currency               as Currency;
+  expose /DMO/I_Travel_Status_VH  as TravelStatus;
+  expose /DMO/I_Carrier           as Carrier;
+  expose /DMO/I_Connection        as Connection;
+  expose /DMO/I_Booking_Status_VH as BookingStatus;
+  expose /DMO/I_Supplement        as Supplement;
+  expose /DMO/I_SupplementText    as SupplementText;
+}
