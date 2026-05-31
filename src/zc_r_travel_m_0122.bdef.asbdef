@@ -3,8 +3,9 @@ strict ( 2 );
 use collaborative draft;
 
 define behavior for ZC_R_TRAVEL_M_0122 alias Travel
+implementation in class ZCL_AUGMNT_TRAV_M_0122 unique
 {
-  use create;
+  use create ( augment );
   use update;
   use delete;
 
