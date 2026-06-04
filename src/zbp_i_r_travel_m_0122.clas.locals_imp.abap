@@ -50,11 +50,64 @@ CLASS lhc_Travel DEFINITION INHERITING FROM cl_abap_behavior_handler.
     METHODS byDefaultOverallStatus FOR DETERMINE ON MODIFY
       IMPORTING keys FOR Travel~byDefaultOverallStatus.
 
+    METHODS deductDiscount FOR MODIFY
+      IMPORTING keys FOR ACTION Travel~deductDiscount RESULT result.
+
+    METHODS get_global_features FOR GLOBAL FEATURES
+      IMPORTING REQUEST requested_features FOR Travel RESULT result.
+
+*    METHODS createTravel FOR MODIFY
+*      IMPORTING keys FOR ACTION Travel~createTravel.
+
 ENDCLASS.
 
 CLASS lhc_Travel IMPLEMENTATION.
 
   METHOD get_instance_features.
+
+    ""Use case: check the status of the current travel request
+    ""          if cancelled, disable the booking creation
+
+    ""Step 1: EML to read the travel status
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+        ENTITY travel
+            FIELDS ( travelid overallstatus )
+            WITH CORRESPONDING #( keys )
+        RESULT DATA(lt_travel)
+        FAILED DATA(lt_failed).
+
+    ""Step 2: Return the result with booking creation is possible or not
+    READ TABLE lt_travel INTO DATA(ls_travel) INDEX 1.
+
+    IF ( ls_travel-OverallStatus = 'X' ).
+      DATA(lv_allow) = if_abap_behv=>fc-o-disabled.
+    ELSE.
+      lv_allow = if_abap_behv=>fc-o-enabled.
+    ENDIF.
+
+    result = VALUE #(  FOR travel IN lt_travel ( %tky = travel-%tky
+                                                 %assoc-_Booking = lv_allow ""Button 'Create' enabled or disabled for Booking Entity
+                                                 %features-%action-acceptTravel =
+                                                          COND #( WHEN travel-OverallStatus = travel_status-accepted
+                                                                      THEN if_abap_behv=>fc-o-disabled
+                                                                      ELSE if_abap_behv=>fc-o-enabled )
+                                                 %features-%action-rejectTravel =
+                                                          COND #( WHEN travel-OverallStatus = travel_status-rejected
+                                                                      THEN if_abap_behv=>fc-o-disabled
+                                                                      ELSE if_abap_behv=>fc-o-enabled )
+                                                 %features-%action-deductDiscount =
+                                                          COND #( WHEN travel-OverallStatus = travel_status-open
+                                                                      THEN if_abap_behv=>fc-o-enabled
+                                                                      ELSE if_abap_behv=>fc-o-disabled )
+*                                                 %features-%update              =
+*                                                          COND #( WHEN travel-OverallStatus = travel_status-accepted
+*                                                                      THEN if_abap_behv=>fc-o-disabled
+*                                                                      ELSE if_abap_behv=>fc-o-enabled )
+*                        %features-%delete      = COND #( WHEN travel-OverallStatus = travel_status-open
+*                                                        THEN if_abap_behv=>fc-o-enabled ELSE if_abap_behv=>fc-o-disabled   )
+*                        %action-Edit           = COND #( WHEN travel-OverallStatus = travel_status-accepted
+*                                                         THEN if_abap_behv=>fc-o-disabled ELSE if_abap_behv=>fc-o-enabled   )
+                                                    ) ).
   ENDMETHOD.
 
   METHOD get_instance_authorizations.
@@ -158,15 +211,157 @@ CLASS lhc_Travel IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD acceptTravel.
-  ENDMETHOD.
 
-  METHOD copyTravel.
-  ENDMETHOD.
+    "Change the travel status to Approved using EML
+    MODIFY ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+        ENTITY travel
+        UPDATE FIELDS ( overallstatus )
+        WITH VALUE #( FOR key IN keys ( %tky = key-%tky
+                                        %is_draft = key-%is_draft
+                                        OverallStatus = 'A'
+         ) ).
 
-  METHOD reCalcTotalPrice.
+    "Read the data of BO instance again
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+       ENTITY travel
+       ALL FIELDS
+       WITH CORRESPONDING #( keys )
+       RESULT DATA(lt_result).
+
+    "return the data out
+    result = VALUE #( FOR travel IN lt_result ( %tky = travel-%tky %param = travel ) ).
+
   ENDMETHOD.
 
   METHOD rejectTravel.
+
+    "Change the travel status to Approved using EML
+    MODIFY ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+        ENTITY travel
+        UPDATE FIELDS ( overallstatus )
+        WITH VALUE #( FOR key IN keys ( %tky = key-%tky
+                                        %is_draft = key-%is_draft
+                                        OverallStatus = 'X'
+         ) ).
+
+    "Read the data of BO instance again
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+       ENTITY travel
+       ALL FIELDS
+       WITH CORRESPONDING #( keys )
+       RESULT DATA(lt_result).
+
+    "return the data out
+    result = VALUE #( FOR travel IN lt_result ( %tky = travel-%tky %param = travel ) ).
+
+  ENDMETHOD.
+
+  METHOD copyTravel.
+**************************************************************************
+* Instance-bound factory action `copyTravel`:
+* Copy an existing travel instance
+**************************************************************************
+    DATA: travels       TYPE TABLE FOR CREATE zi_r_travel_m_0122\\travel,
+          bookings_cba  TYPE TABLE FOR CREATE zi_r_travel_m_0122\\travel\_Booking,
+          booksuppl_cba TYPE TABLE FOR CREATE zi_r_travel_m_0122\\Booking\_BookingSuppl.
+
+    " remove travel instances with initial %cid (i.e., not set by caller API)
+    READ TABLE keys WITH KEY %cid = '' INTO DATA(key_with_inital_cid).
+    ASSERT key_with_inital_cid IS INITIAL.
+
+    " read the data from the 'travel' instances to be copied
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+       ENTITY travel
+       ALL FIELDS WITH CORRESPONDING #( keys )
+    RESULT DATA(travel_read_result)
+    FAILED failed.
+
+    " read the data from the 'booking' instances to be copied
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+       ENTITY travel BY \_Booking
+       ALL FIELDS WITH CORRESPONDING #( travel_read_result )
+    RESULT DATA(book_read_result)
+    FAILED failed.
+
+    " read the data from the 'booking suppliment' instances to be copied
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+    ENTITY booking BY \_BookingSuppl
+        ALL FIELDS WITH CORRESPONDING #( book_read_result )
+        RESULT DATA(booksuppl_read_result)
+        FAILED failed.
+
+    LOOP AT travel_read_result ASSIGNING FIELD-SYMBOL(<travel>).
+      " fill in travel container for creating new travel instance
+      APPEND VALUE #( %cid      = keys[ KEY entity %key = <travel>-%key ]-%cid
+                     %is_draft = keys[ KEY entity %key = <travel>-%key ]-%param-%is_draft
+                     %data     = CORRESPONDING #( <travel> EXCEPT TravelID )
+                     ) TO travels ASSIGNING FIELD-SYMBOL(<new_travel>).
+
+      " adjust the copied travel instance data
+      "" BeginDate must be on or after system date
+      <new_travel>-BeginDate     = cl_abap_context_info=>get_system_date( ).
+      "" EndDate must be after BeginDate
+      <new_travel>-EndDate       = cl_abap_context_info=>get_system_date( ) + 30.
+      "" OverallStatus of new instances must be set to open ('O')
+      <new_travel>-OverallStatus = travel_status-open.
+
+      ""Booking data prepration
+      "We have to pass %cid_ref to tell system, that the bookings belongs to
+      "which travel request - a record was inserted in itab for booking
+      APPEND VALUE #( %cid_ref = keys[ KEY entity %tky = <travel>-%tky ]-%cid
+                    ) TO bookings_cba ASSIGNING FIELD-SYMBOL(<bookings_cba>).
+
+      ""Preapre all the bookings from existing request which needs to be copied
+      LOOP AT book_read_result ASSIGNING FIELD-SYMBOL(<booking>) WHERE travelid =  <travel>-TravelId.
+
+        ""Lets pass a unique booking cid - Concatenate the CID of travel with BookingId of existing travel
+        APPEND VALUE #( %cid = keys[ KEY entity %tky = <travel>-%tky ]-%cid && <booking>-BookingId
+                        %data = CORRESPONDING #( book_read_result[ KEY entity %tky = <booking>-%tky ] EXCEPT travelid ) )
+                TO <bookings_cba>-%target ASSIGNING FIELD-SYMBOL(<new_booking>).
+
+        <new_booking>-BookingStatus = 'N'.
+
+        """---start of supplement
+        ""Booking data prepration
+        "We have to pass %cid_ref to tell system, that the bookings belongs to
+        "which travel request - a record was inserted in itab for booking
+        APPEND VALUE #( %cid_ref = keys[ KEY entity %tky = <travel>-%tky ]-%cid && <booking>-BookingId
+                      ) TO booksuppl_cba ASSIGNING FIELD-SYMBOL(<booksuppl_cba>).
+
+        ""Preapre all the bookings from existing request which needs to be copied
+        LOOP AT booksuppl_read_result ASSIGNING FIELD-SYMBOL(<book_suppl>) USING KEY entity WHERE travelid =  <travel>-TravelId
+                                                                             AND bookingid =  <booking>-BookingId.
+
+          ""Lets pass a unique booking cid - Concatenate the CID of travel with BookingId of existing travel
+          APPEND VALUE #( %cid = keys[ KEY entity %tky = <travel>-%tky ]-%cid && <booking>-BookingId && <book_suppl>-BookingSupplementId
+                          %data = CORRESPONDING #( <book_suppl> EXCEPT travelid bookingid ) )
+                  TO <booksuppl_cba>-%target.
+        ENDLOOP.
+        """---end of sumpplement
+
+      ENDLOOP.
+
+    ENDLOOP.
+
+    " create new BO instance
+    MODIFY ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+       ENTITY travel
+       CREATE FIELDS ( AgencyID CustomerID BeginDate EndDate BookingFee  TotalPrice CurrencyCode OverallStatus Description )
+       WITH travels
+       CREATE BY \_Booking FIELDS ( bookingid bookingdate customerid carrierid connectionid flightdate flightprice currencycode bookingstatus )
+       WITH bookings_cba
+       ENTITY booking
+       CREATE BY \_BookingSuppl FIELDS ( BookingSupplementId SupplementId Price CurrencyCode )
+       WITH booksuppl_cba
+       MAPPED DATA(mapped_create).
+
+    " set the new BO instances
+*    mapped-travel   =  mapped_create-travel . """SHALLOW COPY
+    mapped = mapped_create. """DEEP COPY
+
+  ENDMETHOD.
+
+  METHOD reCalcTotalPrice.
   ENDMETHOD.
 
   METHOD calcTotalPrice.
@@ -329,6 +524,105 @@ CLASS lhc_Travel IMPLEMENTATION.
 
     "Set the changing parameter
     reported = CORRESPONDING #( DEEP update_reported ).
+
+  ENDMETHOD.
+
+  METHOD deductDiscount.
+**************************************************************************
+* Instance-bound non-factory data action:
+* Deduct the specified discount from the booking fee (BookingFee)
+* Define as Abstarct Entity as well to get business user requested discount popup.
+**************************************************************************
+    DATA: travels_for_update TYPE TABLE FOR UPDATE zi_r_travel_m_0122,
+          lv_reduced_fee     TYPE p LENGTH 16 DECIMALS 2.
+    DATA(keys_with_valid_discount) = keys.
+
+    " check and handle invalid discount values
+    LOOP AT keys_with_valid_discount ASSIGNING FIELD-SYMBOL(<key_with_valid_discount>)
+      WHERE %param-discount_percentage IS INITIAL OR %param-discount_percentage > 100 OR %param-discount_percentage <= 0.
+
+      " report invalid discount value appropriately
+      APPEND VALUE #( %tky                       = <key_with_valid_discount>-%tky ) TO failed-travel.
+
+      APPEND VALUE #( %tky                       = <key_with_valid_discount>-%tky
+                      %msg                       = NEW /dmo/cm_flight_messages(
+                                                        textid = /dmo/cm_flight_messages=>discount_invalid
+                                                        severity = if_abap_behv_message=>severity-error )
+                      %element-TotalPrice        = if_abap_behv=>mk-on
+                      %op-%action-deductDiscount = if_abap_behv=>mk-on
+                    ) TO reported-travel.
+
+      " remove invalid discount value
+      DELETE keys_with_valid_discount.
+    ENDLOOP.
+
+    " check and go ahead with valid discount values
+    CHECK keys_with_valid_discount IS NOT INITIAL.
+
+    " read relevant travel instance data (only booking fee)
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+      ENTITY Travel
+        FIELDS ( BookingFee )
+        WITH CORRESPONDING #( keys_with_valid_discount )
+      RESULT DATA(travels).
+
+    LOOP AT travels ASSIGNING FIELD-SYMBOL(<travel>).
+      DATA percentage TYPE decfloat16.
+      DATA(discount_percentage) = keys_with_valid_discount[ KEY draft %tky = <travel>-%tky ]-%param-discount_percentage.
+      percentage =  discount_percentage / 100 .
+      lv_reduced_fee = <travel>-BookingFee * ( 1 - percentage ) .
+
+      APPEND VALUE #( %tky       = <travel>-%tky
+                      BookingFee = lv_reduced_fee
+                    ) TO travels_for_update.
+    ENDLOOP.
+
+    " update data with reduced fee
+    MODIFY ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+      ENTITY Travel
+        UPDATE FIELDS ( BookingFee )
+        WITH travels_for_update.
+
+    " read changed data for action result
+    READ ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+      ENTITY Travel
+        ALL FIELDS WITH
+        CORRESPONDING #( travels )
+      RESULT DATA(travels_with_discount).
+
+    " set action result
+    result = VALUE #( FOR travel IN travels_with_discount ( %tky   = travel-%tky
+                                                            %param = travel ) ).
+  ENDMETHOD.
+
+*  METHOD createTravel.
+
+*    IF keys IS NOT INITIAL.
+*      MODIFY ENTITIES OF zi_r_travel_m_0122 IN LOCAL MODE
+*      ENTITY travel
+*      CREATE FIELDS ( customerid Description  )
+*      WITH VALUE #(
+*                    FOR key IN keys (
+*                                      %cid = key-%cid
+*                                      %is_draft = key-%param-%is_draft
+*                                      customerid = key-%param-customerid
+*                                      description = 'Default Action'
+*                                     )
+*                   ) MAPPED mapped.
+*    ENDIF.
+
+*  ENDMETHOD.
+
+  METHOD get_global_features.
+
+  IF requested_features-%delete = if_abap_behv=>mk-on.
+  data(deactivate_id) = cond #(
+                                 when cl_abap_context_info=>get_system_date( ) = '20260604'
+                                 then if_abap_behv=>mk-off
+                                 else if_abap_behv=>mk-on
+                                ).
+  result-%delete = deactivate_id.
+  ENDIF.
 
   ENDMETHOD.
 

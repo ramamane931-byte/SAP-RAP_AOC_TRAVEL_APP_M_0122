@@ -1,0 +1,34 @@
+{
+  "formatVersion": "2",
+  "header": {
+    "description": "Travel Processor App 0122",
+    "originalLanguage": "en",
+    "abapLanguageVersion": "cloudDevelopment"
+  },
+  "generalInformation": {
+    "appType": "ui5",
+    "catalogId": "SAP_TC_UI5_REPO_UIAD",
+    "targetMappingTitle": "Travel Processor App"
+  },
+  "ui5AppDetails": {
+    "appId": "ztravel_0122"
+  },
+  "navigation": {
+    "targetMappingId": "ZSD_TRAVEL_0122_UI5R_TM",
+    "semanticObject": "ZSO_TRAVEL_0122",
+    "action": "Display",
+    "desktop": true,
+    "tablet": true,
+    "phone": true
+  },
+  "tiles": [
+    {
+      "id": "ZSD_TRAVEL_0122_UI5R_AL",
+      "tileType": "static",
+      "isDefault": true,
+      "standard": {
+        "title": "Travel Processor App"
+      }
+    }
+  ]
+}

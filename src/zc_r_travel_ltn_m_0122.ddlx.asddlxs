@@ -5,7 +5,7 @@
     title : { value: 'TravelId' },
     description : { value : 'Description' }
 }
-annotate entity ZC_R_TRAVEL_M_0122 with
+annotate entity ZC_R_TRAVEL_LTN_M_0122 with
 {
   @UI.facet: [
       {

@@ -1,16 +1,16 @@
 //managed will tell RAP that developer want RAP to create most of code automatically
-managed implementation in class zbp_i_r_travel_m_0122 unique;
+managed implementation in class zbp_i_r_travel_ltn_m_0122 unique;
 //In case developer want to plug extra coding, this is the class where we can do it
 
 //Tell the RAP engine to syntax check our code strictly
 strict ( 2 );
 
 //s1: add the draft feature at BO level zkas
-with collaborative draft; //Allow user to do make same changes in the instance and reflact live changes parallely.
+with draft; //Allow user to do make same changes in the instance and reflact live changes parallely.
 
 //Root Entity behavior
-define behavior for zi_r_travel_m_0122 alias Travel
-implementation in class zbp_i_r_travel_m_0122 unique
+define behavior for zi_r_travel_ltn_m_0122 alias Travel
+implementation in class zbp_i_r_travel_ltn_m_0122 unique
 //Tell the RAP that it should WRITE, UPDATE, MODIFY, DELETE data from which table
 persistent table /dmo/travel_m
 //How the data will be locked ENQUEUE, DEQUEUE - if the travel data is locked by used, other
@@ -19,14 +19,14 @@ lock master
 //s3: Add the total etag field
 total etag LastChangedAt
 //s4: define a draft table, use quick fix to create it
-draft table zats_rama_dtrav query zats_rama_travq  // 'zats_rama_travq' root view part of a 'collaborative draft'.
+draft table zats_ltn_dtrav //query zats_rama_travq  // 'zats_rama_travq' root view part of a 'collaborative draft'.
 //To Control data security - permission - authorization of who can create, edit, delete data
 //TODO: Developer must implement coding for this line in class - I AM SKIPPING IT TO SHOW YOU WAT HAPPENS ;)
 authorization master ( instance, global )
 //it is a field which is used by framework to evaluate whether data was changed in meanwhile OR not
 etag master LastChangedAt
 //We want as a developer to take control of creating Travel ID
-early numbering
+late numbering
 //additional save - once RAP completes all of its activities
 //as a developer you can 100% sure that a save was successfully triggered in DB
 with additional save
@@ -36,18 +36,13 @@ with additional save
   ///  Before click on Save button on fly it will verify the data and show errors accordigly if not satisfied.
   create ( authorization : global, precheck );
   update ( precheck );
-  delete ( features : global ) ;
-
+  delete;
   //static feature control which says that a user cannot change primary key in update mode
   field ( readonly ) TravelId;
   field ( mandatory ) begindate, enddate, agencyid, customerid;
-  //  field ( readonly : update ) BookingFee; /// Making a field readonly at the time of editing or updating a record.
 
   //Since we want to create new BO instance (Factory), Our reference is mohan's (instance)
   factory action copyTravel [1];  ////INSTANCE BASE FACTORY DATA ACTION
-
-  //// The below Static Factoty CREATE operation will give a popup to select CUSTOMER ID defined under abstract entity.
-  //  static default factory action createTravel parameter zi_ab_create_travl_m_0122 [1];
 
   //non factory data action - change the state of the instance of a BO
   // Dynamic feature control - 'features:instance'
@@ -75,7 +70,7 @@ with additional save
   draft action Resume;
   draft action Activate optimized;
   draft action Discard;
-  draft action Share;
+//  draft action Share;
 
   //determination that calls when user save, modify booking fee
   determination calcTotalPrice on modify { field BookingFee, CurrencyCode; create; }
@@ -120,18 +115,18 @@ with additional save
 }
 
 //Behavior for Booking entity
-define behavior for zi_booking_m_0122 alias Booking
-implementation in class zbp_i_r_booking_m_0122 unique
+define behavior for zi_booking_ltn_m_0122 alias Booking
+implementation in class zbp_i_r_booking_ltn_m_0122 unique
 persistent table /dmo/booking_m
 //s7: define the draft table for booking data, use quick fix to create booking draft tab
-draft table zats_rama_dbook
+draft table zats_ltn_dbook
 //if parent data is locked child is also locked automatically
 lock dependent by _Travel
 //lets check the authorization and role @ parent if that pass, we allow booking also to be updated
 authorization dependent by _Travel
 etag master LastChangedAt
-//support for automatic creation of early numbering for Bookings
-early numbering
+//support for automatic creation of late numbering for Bookings
+late numbering
 {
   //user is allowed to only change and delete booking independently
   update;
@@ -172,15 +167,15 @@ early numbering
     }
 }
 
-define behavior for zi_bookingsuppl_m_0122 alias BookSuppl
-implementation in class zbp_i_r_bookingsuppl_m_0122 unique
+define behavior for zi_bookingsuppl_ltn_m_0122 alias BookSuppl
+implementation in class zbp_i_r_booksuppl_ltn_m_0122 unique
 persistent table /dmo/booksuppl_m
 //s8: define the draft table for booking suppl data, use quick fix to create booking draft tab
-draft table zats_rama_dbooks
+draft table zats_ltn_dbooks
 lock dependent by _Travel
 authorization dependent by _Travel
 etag master LastChangedAt
-early numbering
+late numbering
 {
   update;
   delete;

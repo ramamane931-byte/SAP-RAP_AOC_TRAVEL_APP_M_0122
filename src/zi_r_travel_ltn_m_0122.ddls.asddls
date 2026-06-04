@@ -2,9 +2,9 @@
 @EndUserText.label: 'Root CDS entity For Travel Request'
 @Metadata.ignorePropagatedAnnotations: true
 @VDM.viewType: #COMPOSITE
-define root view entity zi_r_travel_m_0122
+define root view entity ZI_R_TRAVEL_LTN_M_0122
   as select from /dmo/travel_m
-  composition [0..*] of zi_booking_m_0122            as _Booking
+  composition [0..*] of zi_booking_ltn_m_0122       as _Booking
   //  composition [0..*] of ZATS_RAMA_ATTACH_M_01        as _Attachments
   association of one to one /DMO/I_Agency            as _Agency        on $projection.AgencyId = _Agency.AgencyID
   association of one to one /DMO/I_Customer          as _Customer      on $projection.CustomerId = _Customer.CustomerID
@@ -31,7 +31,6 @@ define root view entity zi_r_travel_m_0122
       }]
       customer_id                                                      as CustomerId,
       concat(concat( _Customer.FirstName, ' ' ), _Customer.LastName)   as CustomerName,
-      //      _Customer.FirstName                                              as CustomerName,
       begin_date                                                       as BeginDate,
       end_date                                                         as EndDate,
       @Semantics.amount.currencyCode: 'CurrencyCode'

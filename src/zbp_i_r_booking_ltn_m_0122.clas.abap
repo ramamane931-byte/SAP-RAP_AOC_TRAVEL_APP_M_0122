@@ -1,0 +1,5 @@
+CLASS zbp_i_r_booking_ltn_m_0122 DEFINITION PUBLIC ABSTRACT FINAL FOR BEHAVIOR OF zi_r_travel_ltn_m_0122.
+ENDCLASS.
+
+CLASS zbp_i_r_booking_ltn_m_0122 IMPLEMENTATION.
+ENDCLASS.
