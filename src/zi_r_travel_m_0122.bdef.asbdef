@@ -44,7 +44,7 @@ with additional save
   //  field ( readonly : update ) BookingFee; /// Making a field readonly at the time of editing or updating a record.
 
   //Since we want to create new BO instance (Factory), Our reference is mohan's (instance)
-  factory action copyTravel [1];  ////INSTANCE BASE FACTORY DATA ACTION
+  factory action ( features : instance ) copyTravel [1];  ////INSTANCE BASE FACTORY DATA ACTION
 
   //// The below Static Factoty CREATE operation will give a popup to select CUSTOMER ID defined under abstract entity.
   //  static default factory action createTravel parameter zi_ab_create_travl_m_0122 [1];
